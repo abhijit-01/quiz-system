@@ -1,8 +1,4 @@
-import { QRCodeCanvas } from "qrcode.react";
-
 function QRCodePage() {
-  const participantURL = "https://quiz-system-rsmo.vercel.app/register";
-
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="bg-white rounded-3xl shadow-xl p-10 text-center">
@@ -13,7 +9,11 @@ function QRCodePage() {
         </p>
 
         <div className="flex justify-center">
-          <QRCodeCanvas value={participantURL} size={280} level="H" />
+          <img
+            src="/quiz-qr.png"
+            alt="Quiz Registration QR Code"
+            className="w-[280px] h-[280px] object-contain"
+          />
         </div>
 
         <p className="text-sm text-gray-400 mt-6">
