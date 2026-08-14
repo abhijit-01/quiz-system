@@ -1,7 +1,7 @@
 import { QRCodeCanvas } from "qrcode.react";
 
 function QRCodePage() {
-  const participantURL = "http://localhost:5173/register";
+  const participantURL = "https://quiz-system-rsmo.vercel.app/register";
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
