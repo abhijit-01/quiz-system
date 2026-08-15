@@ -15,6 +15,7 @@ function Register() {
   const navigate = useNavigate();
 
   const [psNo, setPsNo] = useState("");
+  const [name, setName] = useState("");
   const [vertical, setVertical] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,8 +25,8 @@ function Register() {
 
     setError("");
 
-    if (!psNo || !vertical) {
-      setError("Please fill all fields");
+    if (!name || !psNo || !vertical) {
+      alert("Please fill all fields");
       return;
     }
 
@@ -38,6 +39,7 @@ function Register() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name,
           psNo,
           vertical,
         }),
@@ -49,7 +51,15 @@ function Register() {
         throw new Error(data.message);
       }
 
-      localStorage.setItem("participant", JSON.stringify(data.participant));
+      localStorage.setItem(
+        "participant",
+        JSON.stringify({
+          id: data.participant.id,
+          name: data.participant.name,
+          psNo: data.participant.psNo,
+          vertical: data.participant.vertical,
+        }),
+      );
 
       navigate("/quiz");
     } catch (error) {
@@ -70,6 +80,19 @@ function Register() {
           </div>
 
           <form onSubmit={handleRegister}>
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Name
+              </label>
+
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your full name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
             <label className="block text-sm font-medium mb-2">PS No.</label>
 
             <input

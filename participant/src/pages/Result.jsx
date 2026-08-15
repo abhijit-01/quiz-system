@@ -23,6 +23,9 @@ function Result() {
         {participant && (
           <div className="bg-gray-50 rounded-xl p-4 mt-6 text-left">
             <p>
+              <strong>Name:</strong> {participant?.name}
+            </p>
+            <p>
               <strong>PS No:</strong> {participant.psNo}
             </p>
 

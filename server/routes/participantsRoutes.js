@@ -7,12 +7,12 @@ const router = express.Router();
 // REGISTER PARTICIPANT
 router.post("/register", async (req, res) => {
   try {
-    const { psNo, vertical } = req.body;
+    const { name, psNo, vertical } = req.body;
 
     // Validation
-    if (!psNo || !vertical) {
+    if (!name || !psNo || !vertical) {
       return res.status(400).json({
-        message: "PS No. and Vertical are required",
+        message: "Name, PS No. and Vertical are required",
       });
     }
 
@@ -29,25 +29,29 @@ router.post("/register", async (req, res) => {
 
     // Create participant
     const participant = await Participant.create({
+      name,
       psNo,
       vertical,
     });
 
+    // Notify admin through Socket.IO
     const io = req.app.get("io");
 
     if (io) {
       io.emit("participantRegistered", {
+        name: participant.name,
         psNo: participant.psNo,
-
         vertical: participant.vertical,
       });
     }
 
+    // Response
     res.status(201).json({
       message: "Registration successful",
 
       participant: {
         id: participant._id,
+        name: participant.name,
         psNo: participant.psNo,
         vertical: participant.vertical,
       },

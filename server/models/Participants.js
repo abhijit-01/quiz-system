@@ -8,6 +8,12 @@ const participantSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
     vertical: {
       type: String,
