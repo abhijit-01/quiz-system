@@ -138,7 +138,7 @@ router.get("/fastest", async (req, res) => {
     const fastest = await Response.find({
       isCorrect: true,
     })
-      .populate("participant", "psNo vertical")
+      .populate("participant", "name psNo vertical")
       .populate("question", "questionText order")
       .sort({
         responseTime: 1,

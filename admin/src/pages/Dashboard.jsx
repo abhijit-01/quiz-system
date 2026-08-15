@@ -35,16 +35,12 @@ function Dashboard() {
       const [participantsResponse, responsesResponse, fastestResponse] =
         await Promise.all([
           fetch(`${API}/api/participants`),
-
           fetch(`${API}/api/responses`),
-
           fetch(`${API}/api/responses/fastest`),
         ]);
 
       const participantsData = await participantsResponse.json();
-
       const responsesData = await responsesResponse.json();
-
       const fastestData = await fastestResponse.json();
 
       setParticipants(participantsData);
@@ -221,6 +217,8 @@ function Dashboard() {
                 <tr className="border-b text-left">
                   <th className="py-3">Rank</th>
 
+                  <th>Name</th>
+
                   <th>PS No.</th>
 
                   <th>Vertical</th>
@@ -236,12 +234,21 @@ function Dashboard() {
                   <tr key={item._id} className="border-b">
                     <td className="py-3 font-bold">#{index + 1}</td>
 
-                    <td>{item.participant?.psNo}</td>
+                    {/* NAME */}
+                    <td className="font-medium">
+                      {item.participant?.name || "—"}
+                    </td>
 
-                    <td>{item.participant?.vertical}</td>
+                    {/* PS NO */}
+                    <td>{item.participant?.psNo || "—"}</td>
 
+                    {/* VERTICAL */}
+                    <td>{item.participant?.vertical || "—"}</td>
+
+                    {/* QUESTION */}
                     <td>Q{item.question?.order}</td>
 
+                    {/* RESPONSE TIME */}
                     <td className="font-semibold text-green-600">
                       {(item.responseTime / 1000).toFixed(2)}s
                     </td>
