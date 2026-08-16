@@ -29,28 +29,42 @@ const verticals = [
 function Dashboard() {
   const [participants, setParticipants] = useState([]);
   const [responses, setResponses] = useState([]);
-  const [fastest, setFastest] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+
+  // ==========================================
+  // LOAD DASHBOARD DATA
+  // ==========================================
 
   const loadData = async () => {
     try {
-      const [participantsResponse, responsesResponse, fastestResponse] =
+      const [participantsResponse, responsesResponse, leaderboardResponse] =
         await Promise.all([
           fetch(`${API}/api/participants`),
+
           fetch(`${API}/api/responses`),
-          fetch(`${API}/api/responses/fastest`),
+
+          fetch(`${API}/api/responses/leaderboard`),
         ]);
 
       const participantsData = await participantsResponse.json();
+
       const responsesData = await responsesResponse.json();
-      const fastestData = await fastestResponse.json();
+
+      const leaderboardData = await leaderboardResponse.json();
 
       setParticipants(participantsData);
+
       setResponses(responsesData);
-      setFastest(fastestData);
+
+      setLeaderboard(leaderboardData);
     } catch (error) {
       console.error("Dashboard error:", error);
     }
   };
+
+  // ==========================================
+  // LIVE UPDATES
+  // ==========================================
 
   useEffect(() => {
     loadData();
@@ -69,9 +83,9 @@ function Dashboard() {
     };
   }, []);
 
-  // -----------------------------------------
+  // ==========================================
   // PARTICIPATION GRAPH
-  // -----------------------------------------
+  // ==========================================
 
   const participationData = verticals.map((vertical) => {
     const count = participants.filter(
@@ -84,9 +98,9 @@ function Dashboard() {
     };
   });
 
-  // -----------------------------------------
+  // ==========================================
   // ANSWER GRAPH
-  // -----------------------------------------
+  // ==========================================
 
   const answerData = verticals.map((vertical) => {
     const verticalResponses = responses.filter(
@@ -107,9 +121,10 @@ function Dashboard() {
       incorrect,
     };
   });
-  // -----------------------------------------
+
+  // ==========================================
   // VERTICAL EFFICIENCY RANKING
-  // -----------------------------------------
+  // ==========================================
 
   const efficiencyData = verticals
     .map((vertical) => {
@@ -134,9 +149,15 @@ function Dashboard() {
     })
     .sort((a, b) => b.efficiency - a.efficiency);
 
+  // ==========================================
+  // DASHBOARD
+  // ==========================================
+
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* HEADER */}
+      {/* ======================================
+          HEADER
+      ====================================== */}
 
       <header className="bg-gray-950 text-white">
         <div className="max-w-7xl mx-auto px-6 py-6">
@@ -147,7 +168,9 @@ function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* STATS */}
+        {/* ======================================
+            STATS
+        ====================================== */}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
           <StatCard title="Participants" value={participants.length} />
@@ -160,16 +183,18 @@ function Dashboard() {
           />
 
           <StatCard
-            title="Fastest Response"
+            title="Current Leader"
             value={
-              fastest.length
-                ? `${(fastest[0].responseTime / 1000).toFixed(2)}s`
+              leaderboard.length
+                ? leaderboard[0].participant?.name || "--"
                 : "--"
             }
           />
         </div>
 
-        {/* PARTICIPATION */}
+        {/* ======================================
+            PARTICIPATION GRAPH
+        ====================================== */}
 
         <ChartCard
           title="Participants by Vertical"
@@ -194,7 +219,9 @@ function Dashboard() {
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* ANSWERS */}
+        {/* ======================================
+            ANSWER GRAPH
+        ====================================== */}
 
         <ChartCard
           title="Live Answer Statistics"
@@ -229,7 +256,9 @@ function Dashboard() {
           </ResponsiveContainer>
         </ChartCard>
 
-        {/* VERTICAL EFFICIENCY RANKING */}
+        {/* ======================================
+            VERTICAL EFFICIENCY RANKING
+        ====================================== */}
 
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
           <div className="mb-5">
@@ -245,7 +274,9 @@ function Dashboard() {
               <thead>
                 <tr className="border-b text-left">
                   <th className="py-3">Rank</th>
+
                   <th>Vertical</th>
+
                   <th>Efficiency</th>
                 </tr>
               </thead>
@@ -253,7 +284,15 @@ function Dashboard() {
               <tbody>
                 {efficiencyData.map((item, index) => (
                   <tr key={item.vertical} className="border-b">
-                    <td className="py-3 font-bold">#{index + 1}</td>
+                    <td className="py-3 font-bold">
+                      {index === 0
+                        ? "🥇"
+                        : index === 1
+                          ? "🥈"
+                          : index === 2
+                            ? "🥉"
+                            : `#${index + 1}`}
+                    </td>
 
                     <td className="font-medium">{item.vertical}</td>
 
@@ -267,13 +306,17 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* FASTEST FINGER */}
+        {/* ======================================
+            INDIVIDUAL LEADERBOARD
+        ====================================== */}
 
-        <div className="bg-white rounded-2xl shadow-sm p-6">
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
           <div className="mb-5">
-            <h2 className="text-xl font-bold">Fastest Finger First</h2>
+            <h2 className="text-xl font-bold">Individual Leaderboard</h2>
 
-            <p className="text-gray-500 text-sm">Fastest correct responses</p>
+            <p className="text-gray-500 text-sm">
+              Ranked by correct answers, with total quiz time as the tie-breaker
+            </p>
           </div>
 
           <div className="overflow-x-auto">
@@ -288,37 +331,63 @@ function Dashboard() {
 
                   <th>Vertical</th>
 
-                  <th>Question</th>
+                  <th>Correct</th>
 
-                  <th>Response Time</th>
+                  <th>Total Time</th>
                 </tr>
               </thead>
 
               <tbody>
-                {fastest.map((item, index) => (
-                  <tr key={item._id} className="border-b">
-                    <td className="py-3 font-bold">#{index + 1}</td>
-
-                    {/* NAME */}
-                    <td className="font-medium">
-                      {item.participant?.name || "—"}
-                    </td>
-
-                    {/* PS NO */}
-                    <td>{item.participant?.psNo || "—"}</td>
-
-                    {/* VERTICAL */}
-                    <td>{item.participant?.vertical || "—"}</td>
-
-                    {/* QUESTION */}
-                    <td>Q{item.question?.order}</td>
-
-                    {/* RESPONSE TIME */}
-                    <td className="font-semibold text-green-600">
-                      {(item.responseTime / 1000).toFixed(2)}s
+                {leaderboard.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-8 text-center text-gray-500">
+                      No responses yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  leaderboard.map((item, index) => (
+                    <tr
+                      key={item.participant?._id || index}
+                      className="border-b"
+                    >
+                      {/* RANK */}
+
+                      <td className="py-3 font-bold">
+                        {index === 0
+                          ? "🥇"
+                          : index === 1
+                            ? "🥈"
+                            : index === 2
+                              ? "🥉"
+                              : `#${index + 1}`}
+                      </td>
+
+                      {/* NAME */}
+
+                      <td className="font-medium">
+                        {item.participant?.name || "—"}
+                      </td>
+
+                      {/* PS NO */}
+
+                      <td>{item.participant?.psNo || "—"}</td>
+
+                      {/* VERTICAL */}
+
+                      <td>{item.participant?.vertical || "—"}</td>
+
+                      {/* CORRECT */}
+
+                      <td className="font-bold">{item.correctAnswers}</td>
+
+                      {/* TOTAL TIME */}
+
+                      <td className="font-semibold text-green-600">
+                        {(item.totalQuizTime / 1000).toFixed(2)}s
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -327,6 +396,10 @@ function Dashboard() {
     </div>
   );
 }
+
+// ==========================================
+// STAT CARD
+// ==========================================
 
 function StatCard({ title, value }) {
   return (
@@ -337,6 +410,10 @@ function StatCard({ title, value }) {
     </div>
   );
 }
+
+// ==========================================
+// CHART CARD
+// ==========================================
 
 function ChartCard({ title, subtitle, children }) {
   return (

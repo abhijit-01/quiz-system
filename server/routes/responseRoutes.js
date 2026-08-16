@@ -155,6 +155,96 @@ router.get("/fastest", async (req, res) => {
   }
 });
 
+// ==========================================
+// INDIVIDUAL LEADERBOARD
+// ==========================================
+
+router.get("/leaderboard", async (req, res) => {
+  try {
+    const leaderboard = await Response.aggregate([
+      {
+        $group: {
+          _id: "$participant",
+
+          // Total number of correct answers
+          correctAnswers: {
+            $sum: {
+              $cond: ["$isCorrect", 1, 0],
+            },
+          },
+
+          // Total quiz time
+          // Includes correct + incorrect + timed-out responses
+          totalQuizTime: {
+            $sum: "$responseTime",
+          },
+
+          // Total questions attempted
+          totalQuestions: {
+            $sum: 1,
+          },
+        },
+      },
+
+      // More correct answers first
+      // If tied, lower total time first
+      {
+        $sort: {
+          correctAnswers: -1,
+          totalQuizTime: 1,
+        },
+      },
+    ]);
+
+    // ------------------------------------------
+    // GET PARTICIPANT DETAILS
+    // ------------------------------------------
+
+    const participantIds = leaderboard.map(
+      (item) => item._id
+    );
+
+    const participants = await Participant.find({
+      _id: { $in: participantIds },
+    }).select("name psNo vertical");
+
+    // ------------------------------------------
+    // COMBINE PARTICIPANT + LEADERBOARD DATA
+    // ------------------------------------------
+
+    const participantMap = {};
+
+    participants.forEach((participant) => {
+      participantMap[participant._id.toString()] = participant;
+    });
+
+    const result = leaderboard.map((item, index) => {
+      const participant =
+        participantMap[item._id.toString()];
+
+      return {
+        rank: index + 1,
+
+        participant: participant || null,
+
+        correctAnswers: item.correctAnswers,
+
+        totalQuestions: item.totalQuestions,
+
+        totalQuizTime: item.totalQuizTime,
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Leaderboard error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
 // ======================================================
 // GET ALL RESPONSES
 // ======================================================
