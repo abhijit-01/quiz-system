@@ -40,9 +40,7 @@ function Dashboard() {
       const [participantsResponse, responsesResponse, leaderboardResponse] =
         await Promise.all([
           fetch(`${API}/api/participants`),
-
           fetch(`${API}/api/responses`),
-
           fetch(`${API}/api/responses/leaderboard`),
         ]);
 
@@ -53,9 +51,7 @@ function Dashboard() {
       const leaderboardData = await leaderboardResponse.json();
 
       setParticipants(participantsData);
-
       setResponses(responsesData);
-
       setLeaderboard(leaderboardData);
     } catch (error) {
       console.error("Dashboard error:", error);
@@ -126,28 +122,58 @@ function Dashboard() {
   // VERTICAL EFFICIENCY RANKING
   // ==========================================
 
-  const efficiencyData = verticals
-    .map((vertical) => {
-      const participantCount = participants.filter(
-        (participant) => participant.vertical === vertical,
-      ).length;
+  const efficiencyData = verticals.map((vertical) => {
+    const participantCount = participants.filter(
+      (participant) => participant.vertical === vertical,
+    ).length;
 
-      const correctAnswers = responses.filter(
-        (response) =>
-          response.participant?.vertical === vertical && response.isCorrect,
-      ).length;
+    const correctAnswers = responses.filter(
+      (response) =>
+        response.participant?.vertical === vertical && response.isCorrect,
+    ).length;
 
-      const efficiency =
-        participantCount > 0 ? correctAnswers / participantCount : 0;
+    const efficiency =
+      participantCount > 0 ? correctAnswers / participantCount : 0;
 
-      return {
-        vertical,
-        participantCount,
-        correctAnswers,
-        efficiency,
-      };
-    })
-    .sort((a, b) => b.efficiency - a.efficiency);
+    // ------------------------------------------
+    // FIND BEST INDIVIDUAL FROM THIS VERTICAL
+    // ------------------------------------------
+
+    const bestIndividualIndex = leaderboard.findIndex(
+      (item) => item.participant?.vertical === vertical,
+    );
+
+    return {
+      vertical,
+      participantCount,
+      correctAnswers,
+      efficiency,
+
+      // Lower index = better individual ranking
+      bestIndividualRank:
+        bestIndividualIndex === -1 ? Infinity : bestIndividualIndex,
+    };
+  });
+
+  // ==========================================
+  // SORT VERTICALS
+  //
+  // 1. Higher efficiency wins
+  // 2. If efficiency is same,
+  //    vertical with higher-ranked individual wins
+  // ==========================================
+
+  efficiencyData.sort((a, b) => {
+    // First priority:
+    // Higher efficiency
+    if (b.efficiency !== a.efficiency) {
+      return b.efficiency - a.efficiency;
+    }
+
+    // Second priority:
+    // Better individual ranking
+    return a.bestIndividualRank - b.bestIndividualRank;
+  });
 
   // ==========================================
   // DASHBOARD
@@ -265,7 +291,8 @@ function Dashboard() {
             <h2 className="text-xl font-bold">Vertical Efficiency Ranking</h2>
 
             <p className="text-gray-500 text-sm">
-              Ranked by correct answers per participant
+              Ranked by correct answers per participant. Ties are decided by the
+              highest-ranked individual.
             </p>
           </div>
 
@@ -350,8 +377,6 @@ function Dashboard() {
                       key={item.participant?._id || index}
                       className="border-b"
                     >
-                      {/* RANK */}
-
                       <td className="py-3 font-bold">
                         {index === 0
                           ? "🥇"
@@ -362,25 +387,15 @@ function Dashboard() {
                               : `#${index + 1}`}
                       </td>
 
-                      {/* NAME */}
-
                       <td className="font-medium">
                         {item.participant?.name || "—"}
                       </td>
 
-                      {/* PS NO */}
-
                       <td>{item.participant?.psNo || "—"}</td>
-
-                      {/* VERTICAL */}
 
                       <td>{item.participant?.vertical || "—"}</td>
 
-                      {/* CORRECT */}
-
                       <td className="font-bold">{item.correctAnswers}</td>
-
-                      {/* TOTAL TIME */}
 
                       <td className="font-semibold text-green-600">
                         {(item.totalQuizTime / 1000).toFixed(2)}s
