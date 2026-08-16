@@ -5,6 +5,7 @@ const Question = require("../models/Question");
 const Response = require("../models/Response");
 const QuizSession = require("../models/QuizSession");
 
+
 const router = express.Router();
 
 // ======================================================
@@ -594,6 +595,24 @@ router.post("/submit", async (req, res) => {
 
     res.status(500).json({
       message: "Server error",
+    });
+  }
+});
+
+router.delete("/reset", async (req, res) => {
+  try {
+    await Participant.deleteMany({});
+    await QuizSession.deleteMany({});
+    await Response.deleteMany({});
+
+    res.json({
+      message: "Quiz data reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset error:", error);
+
+    res.status(500).json({
+      message: "Failed to reset quiz data",
     });
   }
 });

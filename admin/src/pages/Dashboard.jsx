@@ -31,6 +31,8 @@ function Dashboard() {
   const [responses, setResponses] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
 
+  const [resetting, setResetting] = useState(false);
+
   // ==========================================
   // LOAD DASHBOARD DATA
   // ==========================================
@@ -55,6 +57,54 @@ function Dashboard() {
       setLeaderboard(leaderboardData);
     } catch (error) {
       console.error("Dashboard error:", error);
+    }
+  };
+
+  // ==========================================
+  // RESET QUIZ
+  // ==========================================
+
+  const resetQuiz = async () => {
+    if (resetting) return;
+
+    const confirmation = window.confirm(
+      "⚠️ RESET QUIZ\n\nThis will permanently delete:\n\n• All participants\n• All responses\n• All quiz sessions\n\nQuestions will NOT be deleted.\n\nAre you sure you want to continue?",
+    );
+
+    if (!confirmation) return;
+
+    const resetCode = window.prompt('Type "RESET" to confirm:');
+
+    if (resetCode !== "RESET") {
+      if (resetCode !== null) {
+        alert("Reset cancelled. You must type RESET exactly.");
+      }
+
+      return;
+    }
+
+    try {
+      setResetting(true);
+
+      const response = await fetch(`${API}/api/responses/reset`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Reset failed");
+      }
+
+      alert("Quiz data reset successfully!");
+
+      await loadData();
+    } catch (error) {
+      console.error("Reset error:", error);
+
+      alert(error.message || "Failed to reset quiz data.");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -135,10 +185,7 @@ function Dashboard() {
     const efficiency =
       participantCount > 0 ? correctAnswers / participantCount : 0;
 
-    // ------------------------------------------
-    // FIND BEST INDIVIDUAL FROM THIS VERTICAL
-    // ------------------------------------------
-
+    // Find best individual from this vertical
     const bestIndividualIndex = leaderboard.findIndex(
       (item) => item.participant?.vertical === vertical,
     );
@@ -149,7 +196,6 @@ function Dashboard() {
       correctAnswers,
       efficiency,
 
-      // Lower index = better individual ranking
       bestIndividualRank:
         bestIndividualIndex === -1 ? Infinity : bestIndividualIndex,
     };
@@ -159,19 +205,15 @@ function Dashboard() {
   // SORT VERTICALS
   //
   // 1. Higher efficiency wins
-  // 2. If efficiency is same,
-  //    vertical with higher-ranked individual wins
+  // 2. If same efficiency,
+  //    better individual ranking wins
   // ==========================================
 
   efficiencyData.sort((a, b) => {
-    // First priority:
-    // Higher efficiency
     if (b.efficiency !== a.efficiency) {
       return b.efficiency - a.efficiency;
     }
 
-    // Second priority:
-    // Better individual ranking
     return a.bestIndividualRank - b.bestIndividualRank;
   });
 
@@ -186,10 +228,74 @@ function Dashboard() {
       ====================================== */}
 
       <header className="bg-gray-950 text-white">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <h1 className="text-2xl font-bold">Quiz Admin Dashboard</h1>
+        <div className="max-w-7xl mx-auto px-6 py-5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            {/* TITLE */}
 
-          <p className="text-gray-400 mt-1">Live competition monitoring</p>
+            <div>
+              <h1 className="text-2xl font-bold">Quiz Admin Dashboard</h1>
+
+              <p className="text-gray-400 mt-1">Live competition monitoring</p>
+            </div>
+
+            {/* ADMIN CONTROL */}
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block text-right mr-1">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">
+                  Admin Control
+                </p>
+
+                <p className="text-sm text-gray-400">Quiz data management</p>
+              </div>
+
+              <button
+                onClick={resetQuiz}
+                disabled={resetting}
+                className="
+                  group
+                  flex
+                  items-center
+                  gap-2
+                  px-4
+                  py-2.5
+                  rounded-xl
+                  border
+                  border-red-500/30
+                  bg-red-500/10
+                  hover:bg-red-500/20
+                  hover:border-red-500/50
+                  text-red-400
+                  hover:text-red-300
+                  font-semibold
+                  text-sm
+                  transition-all
+                  duration-200
+                  disabled:opacity-50
+                  disabled:cursor-not-allowed
+                "
+              >
+                {/* RESET ICON */}
+
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.023 9.348h4.992M16.023 9.348l2.185-2.185m-2.185 2.185 2.185 2.185M6.977 14.652H1.985m4.992 0-2.185 2.185m2.185-2.185-2.185-2.185M9.75 4.5a7.5 7.5 0 1 1-3.674 14.038"
+                  />
+                </svg>
+
+                {resetting ? "Resetting..." : "Reset Quiz"}
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
