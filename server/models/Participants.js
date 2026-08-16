@@ -24,6 +24,7 @@ const participantSchema = new mongoose.Schema(
         "Mobility",
         "Robotics and Automation",
         "Strategic EPS",
+        "Support Staff",
       ],
     },
 
