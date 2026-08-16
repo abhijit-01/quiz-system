@@ -107,6 +107,32 @@ function Dashboard() {
       incorrect,
     };
   });
+  // -----------------------------------------
+  // VERTICAL EFFICIENCY RANKING
+  // -----------------------------------------
+
+  const efficiencyData = verticals
+    .map((vertical) => {
+      const participantCount = participants.filter(
+        (participant) => participant.vertical === vertical,
+      ).length;
+
+      const correctAnswers = responses.filter(
+        (response) =>
+          response.participant?.vertical === vertical && response.isCorrect,
+      ).length;
+
+      const efficiency =
+        participantCount > 0 ? correctAnswers / participantCount : 0;
+
+      return {
+        vertical,
+        participantCount,
+        correctAnswers,
+        efficiency,
+      };
+    })
+    .sort((a, b) => b.efficiency - a.efficiency);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -202,6 +228,44 @@ function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
+
+        {/* VERTICAL EFFICIENCY RANKING */}
+
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+          <div className="mb-5">
+            <h2 className="text-xl font-bold">Vertical Efficiency Ranking</h2>
+
+            <p className="text-gray-500 text-sm">
+              Ranked by correct answers per participant
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="py-3">Rank</th>
+                  <th>Vertical</th>
+                  <th>Efficiency</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {efficiencyData.map((item, index) => (
+                  <tr key={item.vertical} className="border-b">
+                    <td className="py-3 font-bold">#{index + 1}</td>
+
+                    <td className="font-medium">{item.vertical}</td>
+
+                    <td className="font-bold text-green-600">
+                      {item.efficiency.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* FASTEST FINGER */}
 
