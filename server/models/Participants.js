@@ -8,7 +8,7 @@ const participantSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
-    
+
     name: {
       type: String,
       required: true,
@@ -24,7 +24,7 @@ const participantSchema = new mongoose.Schema(
         "Mobility",
         "Robotics and Automation",
         "Strategic EPS",
-        "Support Staff",
+        "Business Enablers",
       ],
     },
 

@@ -9,7 +9,7 @@ const verticals = [
   "Mobility",
   "Robotics and Automation",
   "Strategic EPS",
-  "Support Staff",
+  "Business Enablers",
 ];
 
 function Register() {
