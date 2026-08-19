@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const participantRoutes = require("./routes/participantsRoutes");
 const questionRoutes = require("./routes/questionRoutes");
 const responseRoutes = require("./routes/responseRoutes");
+const quizRoutes = require("./routes/quizRoutes");
 
 const connectDB = require("./config/db");
 
@@ -41,10 +42,9 @@ app.use(express.json());
 // ======================================================
 
 app.use("/api/participants", participantRoutes);
-
 app.use("/api/questions", questionRoutes);
-
 app.use("/api/responses", responseRoutes);
+app.use("/api/quiz", quizRoutes);
 
 // ======================================================
 // BASIC / HEALTH ROUTE

@@ -4,6 +4,9 @@ const Participant = require("../models/Participants");
 const Question = require("../models/Question");
 const Response = require("../models/Response");
 const QuizSession = require("../models/QuizSession");
+const QuizState = require("../models/QuizState");
+
+
 
 
 const router = express.Router();
@@ -14,6 +17,31 @@ const router = express.Router();
 
 router.post("/start", async (req, res) => {
   try {
+    // ==================================================
+    // CHECK QUIZ STATUS
+    // ==================================================
+
+    const quizState = await QuizState.findOne({
+      key: "main",
+    });
+
+    if (!quizState || quizState.status !== "started") {
+      return res.status(403).json({
+        message:
+          quizState?.status === "ended"
+            ? "Quiz has ended"
+            : "Quiz has not started yet",
+
+        quizNotStarted: !quizState || quizState.status === "not_started",
+
+        quizEnded: quizState?.status === "ended",
+      });
+    }
+
+    // ==================================================
+    // PARTICIPANT ID
+    // ==================================================
+
     const { participantId } = req.body;
 
     if (!participantId) {
@@ -21,6 +49,10 @@ router.post("/start", async (req, res) => {
         message: "Participant ID required",
       });
     }
+
+    // ==================================================
+    // FIND PARTICIPANT
+    // ==================================================
 
     const participant = await Participant.findById(participantId);
 
@@ -30,20 +62,19 @@ router.post("/start", async (req, res) => {
       });
     }
 
-    // --------------------------------------------------
-    // CHECK IF PARTICIPANT ALREADY HAS A SESSION
-    // --------------------------------------------------
+    // ==================================================
+    // CHECK EXISTING SESSION
+    // ==================================================
 
     let session = await QuizSession.findOne({
       participant: participantId,
     });
 
-    // --------------------------------------------------
+    // ==================================================
     // EXISTING SESSION
-    // --------------------------------------------------
+    // ==================================================
 
     if (session) {
-      // Quiz already completed
       if (session.completed) {
         return res.json({
           sessionId: session._id,
@@ -79,9 +110,9 @@ router.post("/start", async (req, res) => {
       });
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // CREATE NEW SESSION
-    // --------------------------------------------------
+    // ==================================================
 
     session = await QuizSession.create({
       participant: participantId,
@@ -89,6 +120,10 @@ router.post("/start", async (req, res) => {
       questionStartedAt: new Date(),
       completed: false,
     });
+
+    // ==================================================
+    // FIRST QUESTION
+    // ==================================================
 
     const question = await Question.findOne({
       active: true,
@@ -106,6 +141,10 @@ router.post("/start", async (req, res) => {
     const totalQuestions = await Question.countDocuments({
       active: true,
     });
+
+    // ==================================================
+    // RESPONSE
+    // ==================================================
 
     res.status(201).json({
       sessionId: session._id,
@@ -604,6 +643,23 @@ router.delete("/reset", async (req, res) => {
     await Participant.deleteMany({});
     await QuizSession.deleteMany({});
     await Response.deleteMany({});
+
+    await QuizState.findOneAndUpdate(
+      { key: "main" },
+      {
+        status: "not_started",
+      },
+      {
+        upsert: true,
+        new: true,
+      },
+    );
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.emit("quizReset");
+    }
 
     res.json({
       message: "Quiz data reset successfully",

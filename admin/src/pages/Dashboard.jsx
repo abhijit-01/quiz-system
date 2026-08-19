@@ -14,6 +14,7 @@ import {
 import { io } from "socket.io-client";
 
 const API = import.meta.env.VITE_API_URL;
+console.log("ADMIN API URL:", API);
 
 const socket = io(API);
 
@@ -32,6 +33,8 @@ function Dashboard() {
   const [leaderboard, setLeaderboard] = useState([]);
 
   const [resetting, setResetting] = useState(false);
+  const [startingQuiz, setStartingQuiz] = useState(false);
+  const [endingQuiz, setEndingQuiz] = useState(false);
 
   // ==========================================
   // LOAD DASHBOARD DATA
@@ -39,24 +42,118 @@ function Dashboard() {
 
   const loadData = async () => {
     try {
-      const [participantsResponse, responsesResponse, leaderboardResponse] =
-        await Promise.all([
-          fetch(`${API}/api/participants`),
-          fetch(`${API}/api/responses`),
-          fetch(`${API}/api/responses/leaderboard`),
-        ]);
+      // ==========================================
+      // PARTICIPANTS
+      // ==========================================
 
-      const participantsData = await participantsResponse.json();
+      const participantsResponse = await fetch(`${API}/api/participants`);
 
-      const responsesData = await responsesResponse.json();
+      if (participantsResponse.ok) {
+        const participantsData = await participantsResponse.json();
 
-      const leaderboardData = await leaderboardResponse.json();
+        setParticipants(participantsData);
+      } else {
+        console.error("Participants API failed:", participantsResponse.status);
+      }
 
-      setParticipants(participantsData);
-      setResponses(responsesData);
-      setLeaderboard(leaderboardData);
+      // ==========================================
+      // RESPONSES
+      // ==========================================
+
+      const responsesResponse = await fetch(`${API}/api/responses`);
+
+      if (responsesResponse.ok) {
+        const responsesData = await responsesResponse.json();
+
+        setResponses(responsesData);
+      } else {
+        console.error("Responses API failed:", responsesResponse.status);
+      }
+
+      // ==========================================
+      // LEADERBOARD
+      // ==========================================
+
+      const leaderboardResponse = await fetch(
+        `${API}/api/responses/leaderboard`,
+      );
+
+      if (leaderboardResponse.ok) {
+        const leaderboardData = await leaderboardResponse.json();
+
+        setLeaderboard(leaderboardData);
+      } else {
+        console.error("Leaderboard API failed:", leaderboardResponse.status);
+
+        // Keep leaderboard empty if this endpoint fails.
+        setLeaderboard([]);
+      }
     } catch (error) {
       console.error("Dashboard error:", error);
+    }
+  };
+
+  const startQuiz = async () => {
+    if (startingQuiz) return;
+
+    const confirmation = window.confirm(
+      "Start the quiz now?\n\nOnce started, registered participants will be able to see the questions.",
+    );
+
+    if (!confirmation) return;
+
+    try {
+      setStartingQuiz(true);
+
+      const response = await fetch(`${API}/api/quiz/start`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to start quiz");
+      }
+
+      alert("Quiz started successfully!");
+    } catch (error) {
+      console.error("Start quiz error:", error);
+
+      alert(error.message || "Failed to start quiz.");
+    } finally {
+      setStartingQuiz(false);
+    }
+  };
+
+  const endQuiz = async () => {
+    if (endingQuiz) return;
+
+    const confirmation = window.confirm(
+      "Are you sure you want to end the quiz?\n\nParticipants will no longer be able to continue.",
+    );
+
+    if (!confirmation) return;
+
+    try {
+      setEndingQuiz(true);
+
+      const response = await fetch(`${API}/api/quiz/end`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to end quiz");
+      }
+
+      alert("Quiz ended successfully!");
+    } catch (error) {
+      console.error("End quiz error:", error);
+
+      alert(error.message || "Failed to end quiz.");
+    } finally {
+      setEndingQuiz(false);
     }
   };
 
@@ -224,8 +321,8 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* ======================================
-          HEADER
-      ====================================== */}
+        HEADER
+    ====================================== */}
 
       <header className="bg-gray-950 text-white">
         <div className="max-w-7xl mx-auto px-6 py-5">
@@ -249,31 +346,117 @@ function Dashboard() {
                 <p className="text-sm text-gray-400">Quiz data management</p>
               </div>
 
+              {/* START QUIZ */}
+
+              <button
+                onClick={startQuiz}
+                disabled={startingQuiz}
+                className="
+                group
+                flex
+                items-center
+                gap-2
+                px-4
+                py-2.5
+                rounded-xl
+                bg-green-600
+                hover:bg-green-700
+                text-white
+                font-semibold
+                text-sm
+                transition-all
+                duration-200
+                shadow-sm
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
+              >
+                {/* PLAY ICON */}
+
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"
+                  />
+                </svg>
+
+                {startingQuiz ? "Starting..." : "Start Quiz"}
+              </button>
+
+              {/* END QUIZ */}
+              <button
+                onClick={endQuiz}
+                disabled={endingQuiz}
+                className="
+                          group
+                          flex
+                          items-center
+                          gap-2
+                          px-4
+                          py-2.5
+                          rounded-xl
+                          border
+                          border-yellow-500/30
+                          bg-yellow-500/10
+                          hover:bg-yellow-500/20
+                          hover:border-yellow-500/50
+                          text-yellow-400
+                          hover:text-yellow-300
+                          font-semibold
+                          text-sm
+                          transition-all
+                          duration-200  
+                          disabled:opacity-50
+                          disabled:cursor-not-allowed
+                        "
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  className="w-4 h-4"
+                >
+                  <path d="M6 6h12v12H6z" />
+                </svg>
+
+                {endingQuiz ? "Ending..." : "End Quiz"}
+              </button>
+
+              {/* RESET QUIZ */}
+
               <button
                 onClick={resetQuiz}
                 disabled={resetting}
                 className="
-                  group
-                  flex
-                  items-center
-                  gap-2
-                  px-4
-                  py-2.5
-                  rounded-xl
-                  border
-                  border-red-500/30
-                  bg-red-500/10
-                  hover:bg-red-500/20
-                  hover:border-red-500/50
-                  text-red-400
-                  hover:text-red-300
-                  font-semibold
-                  text-sm
-                  transition-all
-                  duration-200
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                "
+                group
+                flex
+                items-center
+                gap-2
+                px-4
+                py-2.5
+                rounded-xl
+                border
+                border-red-500/30
+                bg-red-500/10
+                hover:bg-red-500/20
+                hover:border-red-500/50
+                text-red-400
+                hover:text-red-300
+                font-semibold
+                text-sm
+                transition-all
+                duration-200
+                disabled:opacity-50
+                disabled:cursor-not-allowed
+              "
               >
                 {/* RESET ICON */}
 
@@ -301,8 +484,8 @@ function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* ======================================
-            STATS
-        ====================================== */}
+          STATS
+      ====================================== */}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
           <StatCard title="Participants" value={participants.length} />
@@ -325,8 +508,8 @@ function Dashboard() {
         </div>
 
         {/* ======================================
-            PARTICIPATION GRAPH
-        ====================================== */}
+          PARTICIPATION GRAPH
+      ====================================== */}
 
         <ChartCard
           title="Participants by Vertical"
@@ -352,8 +535,8 @@ function Dashboard() {
         </ChartCard>
 
         {/* ======================================
-            ANSWER GRAPH
-        ====================================== */}
+          ANSWER GRAPH
+      ====================================== */}
 
         <ChartCard
           title="Live Answer Statistics"
@@ -389,8 +572,8 @@ function Dashboard() {
         </ChartCard>
 
         {/* ======================================
-            VERTICAL EFFICIENCY RANKING
-        ====================================== */}
+          VERTICAL EFFICIENCY RANKING
+      ====================================== */}
 
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
           <div className="mb-5">
@@ -440,8 +623,8 @@ function Dashboard() {
         </div>
 
         {/* ======================================
-            INDIVIDUAL LEADERBOARD
-        ====================================== */}
+          INDIVIDUAL LEADERBOARD
+      ====================================== */}
 
         <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
           <div className="mb-5">

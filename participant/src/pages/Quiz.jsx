@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { io } from "socket.io-client";
 
 const API = import.meta.env.VITE_API_URL;
+
+const socket = io(API);
 
 function Quiz() {
   const navigate = useNavigate();
 
   const participant = JSON.parse(localStorage.getItem("participant"));
+
+  const [quizStatus, setQuizStatus] = useState("not_started");
 
   const [sessionId, setSessionId] = useState(null);
 
@@ -22,70 +27,168 @@ function Quiz() {
 
   const [loading, setLoading] = useState(true);
 
+  const [startingQuiz, setStartingQuiz] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
 
-  // ==========================================
-  // START QUIZ
-  // ==========================================
+  // ==================================================
+  // CHECK QUIZ STATUS
+  // ==================================================
+
+  const checkQuizStatus = async () => {
+    try {
+      const response = await fetch(`${API}/api/quiz/status`);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to get quiz status");
+      }
+
+      setQuizStatus(data.status);
+
+      return data.status;
+    } catch (error) {
+      console.error("Quiz status error:", error);
+
+      return null;
+    }
+  };
+
+  // ==================================================
+  // START PARTICIPANT QUIZ SESSION
+  // ==================================================
+
+  const startParticipantQuiz = async () => {
+    if (!participant?.id) {
+      navigate("/register");
+      return;
+    }
+
+    if (startingQuiz || sessionId) {
+      return;
+    }
+
+    try {
+      setStartingQuiz(true);
+
+      const response = await fetch(`${API}/api/responses/start`, {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          participantId: participant.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.quizEnded) {
+          setQuizStatus("ended");
+          return;
+        }
+
+        if (data.quizNotStarted) {
+          setQuizStatus("not_started");
+          return;
+        }
+
+        alert(data.message);
+        return;
+      }
+
+      // Already completed
+      if (data.completed) {
+        navigate("/result");
+        return;
+      }
+
+      setSessionId(data.sessionId);
+
+      setQuestion(data.question);
+
+      setQuestionNumber(data.questionNumber);
+
+      setTotalQuestions(data.totalQuestions);
+
+      setTimeLeft(Math.ceil((data.remainingMs || 30000) / 1000));
+
+      setQuizStatus("started");
+    } catch (error) {
+      console.error("Start participant quiz error:", error);
+    } finally {
+      setStartingQuiz(false);
+      setLoading(false);
+    }
+  };
+
+  // ==================================================
+  // INITIAL LOAD + SOCKET EVENTS
+  // ==================================================
 
   useEffect(() => {
     if (!participant) {
       navigate("/register");
-
       return;
     }
 
-    const startQuiz = async () => {
-      try {
-        const response = await fetch(`${API}/api/responses/start`, {
-          method: "POST",
+    const initialize = async () => {
+      const status = await checkQuizStatus();
 
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            participantId: participant.id,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          alert(data.message);
-
-          return;
-        }
-
-        setSessionId(data.sessionId);
-
-        setQuestion(data.question);
-
-        setQuestionNumber(data.questionNumber);
-
-        setTotalQuestions(data.totalQuestions);
-
-        setTimeLeft(Math.ceil((data.remainingMs || 30000) / 1000));
-      } catch (error) {
-        console.error(error);
-      } finally {
+      if (status === "started") {
+        await startParticipantQuiz();
+      } else {
         setLoading(false);
       }
     };
 
-    startQuiz();
+    initialize();
+
+    // ----------------------------------------------
+    // ADMIN STARTED QUIZ
+    // ----------------------------------------------
+
+    socket.on("quizStarted", () => {
+      console.log("Quiz started by admin");
+
+      setQuizStatus("started");
+
+      startParticipantQuiz();
+    });
+
+    // ----------------------------------------------
+    // ADMIN ENDED QUIZ
+    // ----------------------------------------------
+
+    socket.on("quizEnded", () => {
+      console.log("Quiz ended by admin");
+
+      setQuizStatus("ended");
+
+      setQuestion(null);
+    });
+
+    return () => {
+      socket.off("quizStarted");
+      socket.off("quizEnded");
+    };
   }, []);
 
-  // ==========================================
+  // ==================================================
   // TIMER
-  // ==========================================
+  // ==================================================
 
   useEffect(() => {
-    if (!sessionId || !question) return;
+    if (!sessionId || !question || quizStatus !== "started") {
+      return;
+    }
 
     if (timeLeft <= 0) {
       submitAnswer();
-
       return;
     }
 
@@ -94,11 +197,11 @@ function Quiz() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [timeLeft, sessionId, question]);
+  }, [timeLeft, sessionId, question, quizStatus]);
 
-  // ==========================================
-  // SUBMIT
-  // ==========================================
+  // ==================================================
+  // SUBMIT ANSWER
+  // ==================================================
 
   const submitAnswer = async () => {
     if (submitting) return;
@@ -124,23 +227,21 @@ function Quiz() {
 
       if (!response.ok) {
         alert(data.message);
-
         return;
       }
 
-      // --------------------------------
+      // ----------------------------------------------
       // QUIZ FINISHED
-      // --------------------------------
+      // ----------------------------------------------
 
       if (data.completed) {
         navigate("/result");
-
         return;
       }
 
-      // --------------------------------
+      // ----------------------------------------------
       // NEXT QUESTION
-      // --------------------------------
+      // ----------------------------------------------
 
       setQuestion(data.question);
 
@@ -152,27 +253,127 @@ function Quiz() {
 
       setTimeLeft(Math.ceil(data.remainingMs / 1000));
     } catch (error) {
-      console.error(error);
+      console.error("Submit answer error:", error);
     } finally {
       setSubmitting(false);
     }
   };
 
+  // ==================================================
+  // LOADING
+  // ==================================================
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Starting quiz...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+
+          <p className="text-gray-600">Checking quiz status...</p>
+        </div>
       </div>
     );
   }
 
+  // ==================================================
+  // WAITING FOR ADMIN
+  // ==================================================
+
+  if (quizStatus === "not_started") {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center px-5">
+        <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-md w-full">
+          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">⏳</span>
+          </div>
+
+          <h1 className="text-2xl font-bold text-gray-900">
+            You're Registered!
+          </h1>
+
+          <p className="text-gray-500 mt-3">
+            Please wait for the admin to start the quiz.
+          </p>
+
+          <div className="mt-6 bg-gray-50 rounded-xl p-4">
+            <p className="text-sm text-gray-500">Participant</p>
+
+            <p className="font-bold">{participant?.name}</p>
+
+            <p className="text-sm text-gray-500 mt-2">
+              PS No. {participant?.psNo}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-6 text-green-600">
+            <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+
+            <span className="text-sm font-medium">
+              Waiting for quiz to start...
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // QUIZ ENDED
+  // ==================================================
+
+  if (quizStatus === "ended") {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center px-5">
+        <div className="bg-white rounded-3xl shadow-xl p-10 text-center max-w-md w-full">
+          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">🏁</span>
+          </div>
+
+          <h1 className="text-2xl font-bold text-gray-900">Quiz Has Ended</h1>
+
+          <p className="text-gray-500 mt-3">
+            The administrator has ended the quiz.
+          </p>
+
+          <p className="text-sm text-gray-400 mt-6">
+            Thank you for participating.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // QUIZ STARTING
+  // ==================================================
+
+  if (startingQuiz && !question) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+
+          <p className="text-gray-600">Starting quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // NO QUESTION
+  // ==================================================
+
   if (!question) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <p>No question available.</p>
       </div>
     );
   }
+
+  // ==================================================
+  // QUIZ UI
+  // ==================================================
 
   return (
     <div className="min-h-screen bg-gray-100 px-5 py-8">
@@ -211,7 +412,6 @@ function Quiz() {
                 justify-center
                 text-xl
                 font-bold
-
                 ${
                   timeLeft <= 10
                     ? "border-red-500 text-red-500"
